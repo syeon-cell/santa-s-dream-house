@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Santa's House Exploration - What's in the Kitchen?</title>
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 10px;
+    font-family: 'Comic Sans MS', 'Malgun Gothic', sans-serif;
+    background-color: #1a2639;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  /* 상단 헤더 */
+  header {
+    width: 100%;
+    max-width: 1120px;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #c0392b;
+    border-radius: 15px 15px 0 0;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+  header h1 { margin: 0; font-size: 1.35rem; }
+  .room-badge {
+    background: #27ae60;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 1rem;
+    border: 2px solid #fff;
+  }
+
+  /* 메인 컨테이너 (좌측 방 + 우측 리스트 높이 500px 통일) */
+  .main-container {
+    width: 100%;
+    max-width: 1120px;
+    display: flex;
+    flex-wrap: wrap;
+    background: #2c3e50;
+    border-radius: 0 0 15px 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  }
+
+  /* 1인칭 방 뷰포트 */
+  .room-viewport {
+    position: relative;
+    flex: 1 1 680px;
+    height: 500px;
+    overflow: hidden;
+    background: #222;
+  }
+
+  /* 방 배경 이미지 설정 */
+  .room {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  .room.active { display: block; animation: fadeIn 0.4s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0.4; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  /* 방별 배경 이미지 연결 (JPG) */
+  #room-kitchen { background-image: url('bg-kitchen.jpg'); }
+  #room-living  { background-image: url('bg-living.jpg'); }
+  #room-bedroom { background-image: url('bg-bedroom.jpg'); }
+  #room-garden  { background-image: url('bg-garden.jpg'); }
+
+  /* 상호작용 소품 공통 스타일 */
+  .interactive-item {
+    position: absolute;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.25s ease;
+    filter: drop-shadow(0 0 8px rgba(255, 230, 0, 0.9));
+    z-index: 20;
+  }
+  .interactive-item:hover {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 18px rgba(255, 255, 120, 1));
+  }
+  .interactive-item:active {
+    transform: scale(0.96);
+  }
+  .interactive-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  /* 소품 위치 및 크기 설정 */
+  .stove-group {
+    bottom: 27%; left: 34%; width: 32%; height: 34%;
+    display: flex; justify-content: center; gap: 8px; align-items: flex-end;
+  }
+  .stove-group img { width: 48%; }
+
+  .tv-item {
+    bottom: 25%; left: 35%; width: 30%; height: 35%;
+  }
+
+  .bed-item {
+    bottom: 12%; right: 6%; width: 46%; height: 42%;
+  }
+  .lamps-group {
+    top: 0%; left: 22%; width: 56%; height: 24%;
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .lamps-group img { width: 28%; object-position: top; }
+
+  .trees-group {
+    bottom: 32%; left: 12%; width: 76%; height: 52%;
+    display: flex; justify-content: space-between;
+  }
+  .trees-group img { width: 34%; }
+
+  .flowers-group {
+    bottom: 8%; left: 20%; width: 60%; height: 22%;
+    display: flex; justify-content: space-around; align-items: flex-end;
+  }
+  .flowers-group img { width: 16%; }
+
+  /* 상단 영어 문장 말풍선 */
+  .sentence-banner {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.97);
+    color: #c0392b;
+    padding: 10px 22px;
+    border-radius: 35px;
+    font-size: 1.35rem;
+    font-weight: bold;
+    border: 4px solid #27ae60;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    z-index: 40;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    cursor: pointer;
+    animation: popUp 0.3s ease;
+  }
+  @keyframes popUp {
+    0% { transform: translate(-50%, -15px) scale(0.8); opacity: 0; }
+    100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  }
+
+  /* 좌우 방향키 버튼 */
+  .nav-btn {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.6); color: #fff; border: 3px solid #fff;
+    width: 48px; height: 48px; border-radius: 50%; font-size: 1.3rem;
+    cursor: pointer; z-index: 35; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .nav-btn:hover { background: #c0392b; transform: translateY(-50%) scale(1.1); }
+  .nav-prev { left: 12px; }
+  .nav-next { right: 12px; }
+
+  .key-guide {
+    position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.68); padding: 5px 14px; border-radius: 12px;
+    font-size: 0.82rem; z-index: 30; white-space: nowrap;
+  }
+
+  /* ★ 우측 디지털 학습지 리스트 (배경 높이 500px 유지, 장소별 전환) ★ */
+  .worksheet-panel {
+    flex: 1 1 380px;
+    height: 500px;
+    background: #fdfbf7;
+    color: #2c3e50;
+    padding: 16px 18px;
+    border-left: 4px dashed #c0392b;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .panel-header h2 {
+    margin: 0 0 4px 0;
+    color: #c0392b;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #27ae60;
+    padding-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel-header p {
+    font-size: 0.83rem;
+    margin: 4px 0 0 0;
+    color: #555;
+  }
+
+  /* 장소별 학습지 섹션 */
+  .room-worksheet {
+    display: none;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+    justify-content: center;
+  }
+  .room-worksheet.active {
+    display: flex;
+    animation: fadeIn 0.3s ease;
+  }
+
+  /* 핵심 질문 카드 (What's in the ___?) */
+  .question-box {
+    background: #fff8e7;
+    border: 2.5px solid #f39c12;
+    border-radius: 12px;
+    padding: 14px 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+    transition: all 0.25s ease;
+  }
+  .question-box.solved {
+    background: #e8f8f5;
+    border-color: #16a085;
+  }
+  .question-box.wrong {
+    border-color: #e74c3c;
+    background: #fdedec;
+    animation: shake 0.3s ease;
+  }
+  .q-label {
+    display: inline-block;
+    background: #f39c12;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .question-box.solved .q-label {
+    background: #16a085;
+  }
+  .q-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 1.02rem;
+    font-weight: bold;
+    color: #2c3e50;
+    gap: 6px;
+  }
+
+  /* 답변 리스트 영역 */
+  .answer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .a-label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #27ae60;
+    margin-left: 2px;
+  }
+  .checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .checklist li {
+    background: #fff;
+    border: 2px solid #dcdde1;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 0.98rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    transition: all 0.25s ease;
+  }
+  .item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .checklist li.solved {
+    border-color: #27ae60;
+    background: #eafaf1;
+    color: #1e8449;
+    font-weight: bold;
+  }
+  .checklist li.wrong {
+    border-color: #e74c3c;
+    background: #fdedec;
+    animation: shake 0.3s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  .check-box {
+    width: 21px; height: 21px;
+    border: 2px solid #bdc3c7;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.9rem; flex-shrink: 0;
+    background: #fff;
+  }
+  .checklist li.solved .check-box {
+    background: #27ae60; border-color: #27ae60; color: #fff;
+  }
+
+  /* 직접 입력 칸 (단수: TV, bed) */
+  .text-input {
+    width: 84px;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: bold;
+    border: 2px solid #3498db;
+    border-radius: 6px;
+    outline: none;
+    color: #2c3e50;
+    background: #f4faff;
+    user-select: text;
+  }
+  .text-input:focus {
+    border-color: #2980b9;
+    background: #fff;
+  }
+  .checklist li.solved .text-input {
+    border-color: #27ae60;
+    background: #fff;
+    color: #1e8449;
+  }
+
+  /* 드롭다운 선택 (장소 어휘 & 개수 어휘) */
+  .place-select, .count-select {
+    padding: 4px 6px;
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    outline: none;
+    color: #2c3e50;
+  }
+  .place-select {
+    border: 2px solid #f39c12;
+    background: #fff;
+  }
+  .question-box.solved .place-select {
+    border-color: #16a085;
+    color: #16a085;
+  }
+  .count-select {
+    border: 2px solid #e67e22;
+    background: #fffaf0;
+  }
+  .checklist li.solved .count-select {
+    border-color: #27ae60;
+    background: #fff;
+    color: #1e8449;
+  }
+
+  /* 다시 듣기 스피커 버튼 */
+  .speak-mini-btn {
+    background: #bdc3c7;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .question-box.solved .speak-mini-btn { background: #16a085; }
+  .checklist li.solved .speak-mini-btn { background: #27ae60; }
+  .speak-mini-btn:hover { transform: scale(1.12); }
+
+  /* 하단 진행률 및 완료 배너 */
+  .footer-status {
+    text-align: center;
+    font-size: 0.88rem;
+    font-weight: bold;
+    color: #2c3e50;
+    background: #ecf0f1;
+    padding: 9px;
+    border-radius: 8px;
+  }
+  .footer-status.all-done {
+    background: #f1c40f;
+    color: #1a2639;
+    animation: popUp 0.4s ease;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎅 Santa's House Explorer</h1>
+  <div class="room-badge" id="room-title">1 / 4 : Kitchen (주방)</div>
+</header>
+
+<div class="main-container">
+  <div class="room-viewport">
+    <!-- 클릭 시 문장 재생 말풍선 -->
+    <div class="sentence-banner" id="sentence-banner">
+      <span>🔊</span>
+      <span id="sentence-text"></span>
+    </div>
+
+    <!-- 1. 주방 (Kitchen) -->
+    <div class="room active" id="room-kitchen">
+      <div class="interactive-item stove-group" data-sentence="There are two stoves.">
+        <img src="stove.png" alt="stove 1">
+        <img src="stove.png" alt="stove 2">
+      </div>
+    </div>
+
+    <!-- 2. 거실 (Living Room) -->
+    <div class="room" id="room-living">
+      <div class="interactive-item tv-item" data-sentence="There is a TV.">
+        <img src="tv.png" alt="TV">
+      </div>
+    </div>
+
+    <!-- 3. 침실 (Bedroom) -->
+    <div class="room" id="room-bedroom">
+      <div class="interactive-item lamps-group" data-sentence="There are three lamps.">
+        <img src="lamp.png" alt="lamp 1">
+        <img src="lamp.png" alt="lamp 2">
+        <img src="lamp.png" alt="lamp 3">
+      </div>
+      <div class="interactive-item bed-item" data-sentence="There is a bed.">
+        <img src="bed.png" alt="bed">
+      </div>
+    </div>
+
+    <!-- 4. 정원 (Garden) -->
+    <div class="room" id="room-garden">
+      <div class="interactive-item trees-group" data-sentence="There are two trees.">
+        <img src="tree.png" alt="tree 1">
+        <img src="tree.png" alt="tree 2">
+      </div>
+      <div class="interactive-item flowers-group" data-sentence="There are five flowers.">
+        <img src="flower.png" alt="flower 1">
+        <img src="flower.png" alt="flower 2">
+        <img src="flower.png" alt="flower 3">
+        <img src="flower.png" alt="flower 4">
+        <img src="flower.png" alt="flower 5">
+      </div>
+    </div>
+
+    <button type="button" class="nav-btn nav-prev" id="btn-prev">◀</button>
+    <button type="button" class="nav-btn nav-next" id="btn-next">▶</button>
+    <div class="key-guide">💡 방을 이동하며 <b>질문</b>과 <b>답변</b>을 모두 완성해 보세요!</div>
+  </div>
+
+  <!-- 우측 디지털 학습지 리스트 (장소별 동적 전환, 높이 500px 유지) -->
+  <aside class="worksheet-panel">
+    <div class="panel-header">
+      <h2>
+        <span>📝 Room Worksheet</span>
+        <span id="ws-room-label" style="font-size:0.85rem; color:#27ae60;">Room 1 / 4</span>
+      </h2>
+      <p>질문의 <b>장소</b>를 고르고, 방 안의 물건을 찾아 <b>답변</b>을 완성하세요!</p>
+    </div>
+
+    <!-- [1번 방 학습지: Kitchen] -->
+    <div class="room-worksheet active" id="ws-kitchen">
+      <div class="question-box" id="q-kitchen">
+        <span class="q-label">❓ Ask (질문 만들기)</span>
+        <div class="q-line">
+          <span>What's in the
+            <select class="place-select" data-box="q-kitchen" data-answer="kitchen" data-sentence="What's in the kitchen?">
+              <option value="">(장소 선택)</option>
+              <option value="kitchen">kitchen</option>
+              <option value="living room">living room</option>
+              <option value="bedroom">bedroom</option>
+              <option value="garden">garden</option>
+            </select> ?
+          </span>
+          <button type="button" class="speak-mini-btn" data-sentence="What's in the kitchen?" title="질문 듣기">🔊</button>
+        </div>
+      </div>
+
+      <div class="answer-section">
+        <span class="a-label">💬 Answer (물건 찾아 답하기)</span>
+        <ul class="checklist">
+          <li id="row-stove">
+            <div class="item-left">
+              <div class="check-box"></div>
+              <span>There are
+                <select class="count-select" data-row="row-stove" data-answer="two" data-sentence="There are two stoves.">
+                  <option value="">(개수)</option>
+                  <option value="one">one</option>
+                  <option value="two">two</option>
+                  <option value="three">three</option>
+                  <option value="four">four</option>
+                  <option value="five">five</option>
+                </select>
+                stoves.
+              </span>
+            </div>
+            <button type="button" class="speak-mini-btn" data-sentence="There are two stoves." title="답변 듣기">🔊</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- [2번 방 학습지: Living Room] -->
+    <div class="room-worksheet" id="ws-living">
+      <div class="question-box" id="q-living">
+        <span class="q-label">❓ Ask (질문 만들기)</span>
+        <div class="q-line">
+          <span>What's in the
+            <select class="place-select" data-box="q-living" data-answer="living room" data-sentence="What's in the living room?">
+              <option value="">(장소 선택)</option>
+              <option value="kitchen">kitchen</option>
+              <option value="living room">living room</option>
+              <option value="bedroom">bedroom</option>
+              <option value="garden">garden</option>
+            </select> ?
+          </span>
+          <button type="button" class="speak-mini-btn" data-sentence="What's in the living room?" title="질문 듣기">🔊</button>
+        </div>
+      </div>
+
+      <div class="answer-section">
+        <span class="a-label">💬 Answer (물건 찾아 답하기)</span>
+        <ul class="checklist">
+          <li id="row-tv">
+            <div class="item-left">
+              <div class="check-box"></div>
+              <span>There is
+                <input type="text" class="text-input" placeholder="a ___" data-row="row-tv" data-answers="a tv,tv" data-sentence="There is a TV."> .
+              </span>
+            </div>
+            <button type="button" class="speak-mini-btn" data-sentence="There is a TV." title="답변 듣기">🔊</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- [3번 방 학습지: Bedroom] -->
+    <div class="room-worksheet" id="ws-bedroom">
+      <div class="question-box" id="q-bedroom">
+        <span class="q-label">❓ Ask (질문 만들기)</span>
+        <div class="q-line">
+          <span>What's in the
+            <select class="place-select" data-box="q-bedroom" data-answer="bedroom" data-sentence="What's in the bedroom?">
+              <option value="">(장소 선택)</option>
+              <option value="kitchen">kitchen</option>
+              <option value="living room">living room</option>
+              <option value="bedroom">bedroom</option>
+              <option value="garden">garden</option>
+            </select> ?
+          </span>
+          <button type="button" class="speak-mini-btn" data-sentence="What's in the bedroom?" title="질문 듣기">🔊</button>
+        </div>
+      </div>
+
+      <div class="answer-section">
+        <span class="a-label">💬 Answer (물건 찾아 답하기)</span>
+        <ul class="checklist">
+          <li id="row-bed">
+            <div class="item-left">
+              <div class="check-box"></div>
+              <span>There is
+                <input type="text" class="text-input" placeholder="a ___" data-row="row-bed" data-answers="a bed,bed" data-sentence="There is a bed."> .
+              </span>
+            </div>
+            <button type="button" class="speak-mini-btn" data-sentence="There is a bed." title="답변 듣기">🔊</button>
+          </li>
+          <li id="row-lamps">
+            <div class="item-left">
+              <div class="check-box"></div>
+              <span>There are
+                <select class="count-select" data-row="row-lamps" data-answer="three" data-sentence="There are three lamps.">
+                  <option value="">(개수)</option>
+                  <option value="one">one</option>
+                  <option value="two">two</option>
+                  <option value="three">three</option>
+                  <option value="four">four</option>
+                  <option value="five">five</option>
+                </select>
+                lamps.
+              </span>
+            </div>
+            <button type="button" class="speak-mini-btn" data-sentence="There are three lamps." title="답변 듣기">🔊</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- [4번 방 학습지: Garden] -->
+    <div class="room-worksheet" id="ws-garden">
+      <div class="question-box" id="q-garden">
+        <span class="q-label">❓ Ask (질문 만들기)</span>
+        <div class="q-line">
+          <span>What's in the
+            <select class="place-select" data-box="q-garden" data-answer="garden" data-sentence="What's in the garden?">
+              <option value="">(장소 선택)</option>
+              <option value="kitchen">kitchen</option>
+              <option value="living room">living room</option>
+              <option value="bedroom">bedroom</option>
+              <option value="garden">garden</option>
+            </select> ?
+          </span>
+          <button type="button" class="speak-mini-btn" data-sentence="What's in the garden?" title="질문 듣기">🔊</button>
+        </div>
+      </div>
+
+      <div class="answer-section">
+        <span class="a-label">💬 Answer (물건 찾아 답하기)</span>
+        <ul class="checklist">
+          <li id="row-trees">
+            <div class="item-left">
+              <div class="check-box"></div>
+              <span>There are
+                <select class="count-select" data-row="row-trees" data-answer="two" data-sentence="There are two trees.">
+                  <option value="">(개수)</option>
+                  <option value="one">one</option>
+                  <option value="two">two</option>
+                  <option value="three">three</option>
+                  <option value="four">four</option>
+                  <option value="five">five</option>
+                </select>
+                trees.
+              </span>
+            </div>
+            <button type="button" class="speak-mini-btn" data-sentence="There are two trees." title="답변 듣기">🔊</button>
+          </li>
+          <li id="row-flowers">
+            <div class="item-left">
+              <div class="check-box"></div>
+              <span>There are
+                <select class="count-select" data-row="row-flowers" data-answer="five" data-sentence="There are five flowers.">
+                  <option value="">(개수)</option>
+                  <option value="one">one</option>
+                  <option value="two">two</option>
+                  <option value="three">three</option>
+                  <option value="four">four</option>
+                  <option value="five">five</option>
+                </select>
+                flowers.
+              </span>
+            </div>
+            <button type="button" class="speak-mini-btn" data-sentence="There are five flowers." title="답변 듣기">🔊</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-status" id="footer-status">
+      전체 완성도: <span id="score-count">0</span> / 10 (4개 방의 질문과 답변을 완성하세요!)
+    </div>
+  </aside>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const rooms = [
+      { id: 'room-kitchen', wsId: 'ws-kitchen', title: '1 / 4 : Kitchen (주방)',       wsLabel: 'Room 1 / 4' },
+      { id: 'room-living',  wsId: 'ws-living',  title: '2 / 4 : Living Room (거실)', wsLabel: 'Room 2 / 4' },
+      { id: 'room-bedroom', wsId: 'ws-bedroom', title: '3 / 4 : Bedroom (침실)',     wsLabel: 'Room 3 / 4' },
+      { id: 'room-garden',  wsId: 'ws-garden',  title: '4 / 4 : Garden (정원)',      wsLabel: 'Room 4 / 4' }
+    ];
+
+    let currentRoomIndex = 0;
+    let currentSentence = "";
+    const solvedSet = new Set(); // 질문 4개 + 답변 6개 = 총 10개 추적
+
+    // 안전한 원어민 영어 TTS 음성 재생 함수
+    function speakEnglish(text) {
+      try {
+        if (!('speechSynthesis' in window)) return;
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.88;
+        utterance.pitch = 1.05;
+
+        const voices = window.speechSynthesis.getVoices();
+        if (voices && voices.length > 0) {
+          const enVoice = voices.find(v => v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha')))
+                       || voices.find(v => v.lang && v.lang.startsWith('en'));
+          if (enVoice) utterance.voice = enVoice;
+        }
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.log('TTS 제한:', err);
+      }
+    }
+
+    // 방 이동 시 배경과 우측 학습지 동시 전환
+    function changeRoom(direction) {
+      try {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      } catch (e) {}
+
+      // 현재 방 및 학습지 비활성화
+      document.getElementById(rooms[currentRoomIndex].id).classList.remove('active');
+      document.getElementById(rooms[currentRoomIndex].wsId).classList.remove('active');
+
+      // 인덱스 변경
+      currentRoomIndex = (currentRoomIndex + direction + rooms.length) % rooms.length;
+
+      // 새 방 및 학습지 활성화
+      document.getElementById(rooms[currentRoomIndex].id).classList.add('active');
+      document.getElementById(rooms[currentRoomIndex].wsId).classList.add('active');
+      document.getElementById('room-title').textContent = rooms[currentRoomIndex].title;
+      document.getElementById('ws-room-label').textContent = rooms[currentRoomIndex].wsLabel;
+      document.getElementById('sentence-banner').style.display = 'none';
+    }
+
+    // 방 안의 사물 클릭 시 문장 + 음성 출력
+    document.querySelectorAll('.interactive-item').forEach(function(el) {
+      el.addEventListener('click', function() {
+        const sentence = this.getAttribute('data-sentence');
+        currentSentence = sentence;
+
+        const banner = document.getElementById('sentence-banner');
+        document.getElementById('sentence-text').textContent = sentence;
+        banner.style.display = 'none';
+        void banner.offsetWidth;
+        banner.style.display = 'flex';
+
+        speakEnglish(sentence);
+      });
+    });
+
+    // 전체 진행도 업데이트 (총 10개: 질문 4 + 답변 6)
+    function updateProgress(itemKey, sentence) {
+      if (!solvedSet.has(itemKey)) {
+        solvedSet.add(itemKey);
+        document.getElementById('score-count').textContent = solvedSet.size;
+        speakEnglish(sentence);
+      }
+
+      if (solvedSet.size === 10) {
+        const footer = document.getElementById('footer-status');
+        footer.textContent = '🎉 Mission Complete! 산타의 집 전체 학습지 완성!';
+        footer.classList.add('all-done');
+      }
+    }
+
+    // 1) 질문 드롭다운 (장소 선택: What's in the ___?)
+    document.querySelectorAll('.place-select').forEach(function(sel) {
+      sel.addEventListener('change', function() {
+        const boxId = this.getAttribute('data-box');
+        const answer = this.getAttribute('data-answer');
+        const sentence = this.getAttribute('data-sentence');
+        const box = document.getElementById(boxId);
+
+        if (this.value === answer) {
+          box.classList.remove('wrong');
+          box.classList.add('solved');
+          updateProgress(boxId, sentence);
+        } else if (this.value !== '') {
+          if (!box.classList.contains('solved')) {
+            box.classList.remove('wrong');
+            void box.offsetWidth;
+            box.classList.add('wrong');
+          }
+        }
+      });
+    });
+
+    // 2) 답변 정답/오답 처리 공통 함수
+    function markRowSolved(rowId, sentence) {
+      const row = document.getElementById(rowId);
+      if (!row) return;
+      row.classList.remove('wrong');
+      row.classList.add('solved');
+      row.querySelector('.check-box').textContent = '✔';
+      updateProgress(rowId, sentence);
+    }
+
+    function markRowWrong(rowId) {
+      const row = document.getElementById(rowId);
+      if (!row || row.classList.contains('solved')) return;
+      row.classList.remove('wrong');
+      void row.offsetWidth;
+      row.classList.add('wrong');
+    }
+
+    // 3) 답변 복수형 드롭다운 (개수 선택)
+    document.querySelectorAll('.count-select').forEach(function(sel) {
+      sel.addEventListener('change', function() {
+        const rowId = this.getAttribute('data-row');
+        const answer = this.getAttribute('data-answer');
+        const sentence = this.getAttribute('data-sentence');
+
+        if (this.value === answer) {
+          markRowSolved(rowId, sentence);
+        } else if (this.value !== '') {
+          markRowWrong(rowId);
+        }
+      });
+    });
+
+    // 4) 답변 단수형 직접 입력 (a TV, a bed)
+    document.querySelectorAll('.text-input').forEach(function(inp) {
+      function checkTextAnswer(isEnterOrBlur) {
+        const rowId = inp.getAttribute('data-row');
+        const validAnswers = inp.getAttribute('data-answers').split(',');
+        const sentence = inp.getAttribute('data-sentence');
+        const userVal = inp.value.trim().toLowerCase().replace(/\.$/, '').replace(/\s+/g, ' ');
+
+        if (validAnswers.includes(userVal)) {
+          inp.value = (rowId === 'row-tv') ? 'a TV' : 'a bed';
+          markRowSolved(rowId, sentence);
+        } else if (isEnterOrBlur && userVal !== '') {
+          markRowWrong(rowId);
+        }
+      }
+
+      inp.addEventListener('input', function() { checkTextAnswer(false); });
+      inp.addEventListener('blur', function() { checkTextAnswer(true); });
+      inp.addEventListener('keydown', function(e) {
+        e.stopPropagation();
+        if (e.key === 'Enter') checkTextAnswer(true);
+      });
+    });
+
+    // 좌우 버튼, 말풍선, 스피커 버튼 연결
+    document.getElementById('btn-prev').addEventListener('click', function() { changeRoom(-1); });
+    document.getElementById('btn-next').addEventListener('click', function() { changeRoom(1); });
+    document.getElementById('sentence-banner').addEventListener('click', function() {
+      if (currentSentence) speakEnglish(currentSentence);
+    });
+    document.querySelectorAll('.speak-mini-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        speakEnglish(this.getAttribute('data-sentence'));
+      });
+    });
+
+    // 키보드 좌우 방향키 연결
+    document.addEventListener('keydown', function(e) {
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') return;
+      if (e.key === 'ArrowLeft') changeRoom(-1);
+      if (e.key === 'ArrowRight') changeRoom(1);
+    });
+  });
+</script>
+</body>
+</html>
